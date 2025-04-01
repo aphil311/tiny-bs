@@ -57,5 +57,6 @@ class PredictionHead(nn.Module):
         # FC4: 256 → 1 → sigmoid
         x = self.fc4(x)
         score = torch.sigmoid(x)  # Final score in [0, 1]
+        score = score.squeeze(1)
 
         return score
