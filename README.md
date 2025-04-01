@@ -31,7 +31,7 @@ At the moment we only support the German-English language pair.
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] **Build the model**
+- [X] **Build the model**
 - [ ] **Training**
 - [ ] **Validation**
 - [ ] **Evaluation**
