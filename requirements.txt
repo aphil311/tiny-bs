@@ -1,1 +1,3 @@
 laser_encoders
+scipy
+datasets
