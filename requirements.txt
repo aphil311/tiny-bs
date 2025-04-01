@@ -1,3 +1,5 @@
 laser_encoders
 scipy
 datasets
+requests
+tensorboardX

@@ -9,6 +9,8 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
+from tqdm import tqdm
+
 import models.prediction_head as prediction_head
 from utils import split_dataset, normalize
 
@@ -22,8 +24,16 @@ def main():
         "--dataset_name",
         type=str,
         default="RicardoRei/wmt-da-human-evaluation",
-        required=True,
         help="Name of the dataset to use.",
+    )
+    parser.add_argument("--epochs",
+        type=int, default=10,
+        help="Number of epochs to train the model for. Default is 10."
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode to print dataset structure and sample examples.",
     )
     args = parser.parse_args()
 
@@ -36,14 +46,31 @@ def main():
     ds = ds.remove_columns(
         [col for col in ds.column_names if col not in columns_to_keep]
     )
+    # Filter out rows with any blank values
+    initial_count = len(ds)
+    ds = ds.filter(lambda row: all(row[col] for col in columns_to_keep))
+    filtered_count = initial_count - len(ds)
+    print(f"Filtered out {filtered_count} rows with blank values.")
 
     # TODO: we should filter to take the shortest sentences only
 
     # create training/validation/test split
     ds = split_dataset(ds)
 
+    if args.debug:
+        # Sanity-check: print dataset structure and a few examples
+        print("🚨 Dataset split sizes:")
+        for split in ["train", "validation", "test"]:
+            print(f"{split}: {len(ds[split])} examples")
+
+        print("\n🔍 Sample from training set:")
+        sample = ds["train"][176]
+        print("SRC:", sample["src"])
+        print("MT:", sample["mt"])
+        print("Normalized Score (raw_norm):", sample["raw_norm"])
+
     train_loader = DataLoader(
-        ds["train"], batch_size=512, shuffle=True, num_workers=4, pin_memory=True
+        ds["train"], batch_size=512, shuffle=True, num_workers=1, pin_memory=True
     )
     val_loader = DataLoader(ds["validation"], batch_size=512)
 
@@ -65,14 +92,23 @@ def main():
     loss_fn = nn.MSELoss()
     patience = 2  # Early stopping patience
 
-    for epoch in range(10):
+    for epoch in range(args.epochs):
         model.train()
         train_loss = 0.0
 
-        for src, mt, score in train_loader:
+        for batch in tqdm(train_loader):
+            src = batch["src"]
+            mt = batch["mt"]
+            score = batch["raw_norm"]
             # encode sentences
             src_emb = de_encoder.encode_sentences(src)
             can_emb = en_encoder.encode_sentences(mt)
+            score = score.float()
+
+            # pass those puppies off to tensors
+            src_emb = torch.tensor(src_emb, dtype=torch.float32)
+            can_emb = torch.tensor(can_emb, dtype=torch.float32)
+
             src_emb, can_emb, score = (
                 src_emb.to(device),
                 can_emb.to(device),
@@ -98,6 +134,10 @@ def main():
             for src, mt, score in val_loader:
                 src_emb = de_encoder.encode_sentences(src)
                 can_emb = en_encoder.encode_sentences(mt)
+                # pass those puppies off to tensors
+                src_emb = torch.tensor(src_emb, dtype=torch.float32)
+                can_emb = torch.tensor(can_emb, dtype=torch.float32)
+                score = score.float()
 
                 src_emb, can_emb, score = (
                     src_emb.to(device),
