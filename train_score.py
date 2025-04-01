@@ -17,6 +17,7 @@ def main():
     # Handle arguments
     # ----------------
     parser = argparse.ArgumentParser(description="Train and score a model.")
+    parser.add_argument("output_dir", type=str, help="Directory to save the best model.")
     parser.add_argument(
         "--dataset_name",
         type=str,
@@ -125,7 +126,7 @@ def main():
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             stopping_counter = 0
-            torch.save(model.state_dict(), "best_model.pt")
+            torch.save(model.state_dict(), args.output_dir + "/best_model.pt")
         else:
             stopping_counter += 1
             if stopping_counter >= patience:
