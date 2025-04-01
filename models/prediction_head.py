@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class PredictionHead(nn.Module):
     def __init__(self, dropout_rate=0.2):
         super(PredictionHead, self).__init__()
@@ -33,7 +34,9 @@ class PredictionHead(nn.Module):
         # Construct composite input: [x ; y ; |x - y| ; x * y]
         abs_diff = torch.abs(x_emb - y_emb)
         elementwise_product = x_emb * y_emb
-        composite_input = torch.cat([x_emb, y_emb, abs_diff, elementwise_product], dim=1)  # shape: (batch_size, 4096)
+        composite_input = torch.cat(
+            [x_emb, y_emb, abs_diff, elementwise_product], dim=1
+        )  # shape: (batch_size, 4096)
 
         # FC1: 4096 → 1024
         x = self.fc1(composite_input)
@@ -56,4 +59,3 @@ class PredictionHead(nn.Module):
         score = torch.sigmoid(x)  # Final score in [0, 1]
 
         return score
-
