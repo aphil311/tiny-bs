@@ -91,6 +91,8 @@ def main():
     scheduler = CosineAnnealingLR(optimizer, T_max=100, eta_min=0.01)
     loss_fn = nn.MSELoss()
     patience = 2  # Early stopping patience
+    best_val_loss = float("inf")
+    stopping_counter = 0
 
     for epoch in range(args.epochs):
         model.train()
@@ -131,7 +133,10 @@ def main():
         all_preds, all_targets = [], []
 
         with torch.no_grad():
-            for src, mt, score in val_loader:
+            for batch in tqdm(val_loader):
+                src = batch["src"]
+                mt = batch["mt"]
+                score = batch["raw_norm"]
                 src_emb = de_encoder.encode_sentences(src)
                 can_emb = en_encoder.encode_sentences(mt)
                 # pass those puppies off to tensors
@@ -153,13 +158,19 @@ def main():
                 all_targets.extend(score.cpu().numpy())
 
         val_loss /= len(val_loader.dataset)
-        scheduler.step(val_loss)
+        scheduler.step()
 
         pearson = pearsonr(all_preds, all_targets)[0]
         spearman = spearmanr(all_preds, all_targets)[0]
 
         print(
             f"Epoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | r = {pearson:.4f}, p = {spearman:.4f}"
+        )
+
+        # Write epoch and loss stats to a file
+        with open("training_log.txt", "a") as log_file:
+            log_file.write(
+            f"Epoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | r = {pearson:.4f}, p = {spearman:.4f}\n"
         )
 
         # Early stopping
